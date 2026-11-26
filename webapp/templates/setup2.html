@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block body %}
+<h1>{{machine.machine_name}} — Setup Page 2: Machine Metrics</h1>
+<p class="muted">Unavailable metrics are greyed out until the required state/time variables exist.</p>
+<p><a class="btn secondary" href="/machines/{{machine.machine_id}}/setup1">← Sensor / State Settings</a></p>
+<form method="post">
+{% for m in metrics %}
+<div class="metric-card {% if not m.eligible %}grey{% endif %}">
+<label><input type="checkbox" name="metric_key" value="{{m.key}}" {% if m.selected %}checked{% endif %} {% if not m.eligible %}disabled{% endif %}> <b>{{m.name}}</b></label>
+<div>{{m.formula}}</div>
+{% if not m.eligible %}<div class="bad"><b>Unavailable:</b> please define {{m.missing|join('; ')}}.</div>{% endif %}
+{% if m.key=='oee_pct' %}
+<div style="margin-top:10px">
+Ideal cycle time (sec): <input name="oee_ideal_cycle_time_sec" value="{{m.parameters.ideal_cycle_time_sec or ''}}">
+Total-count feature: <input name="oee_total_count_feature" value="{{m.parameters.total_count_feature or ''}}" placeholder="e.g. x5">
+Good-count feature: <input name="oee_good_count_feature" value="{{m.parameters.good_count_feature or ''}}" placeholder="e.g. x6">
+</div>{% endif %}
+</div>{% endfor %}
+<button class="btn green">Save Metric Settings</button></form>{% endblock %}
