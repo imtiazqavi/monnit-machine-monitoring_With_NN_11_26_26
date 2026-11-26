@@ -1,0 +1,88 @@
+services:
+  - type: keyvalue
+    name: monnit-machine-queue
+    region: ohio
+    plan: 256mb
+    maxmemoryPolicy: noeviction
+    persistenceMode: journal-snapshot
+    ipAllowList: []
+
+  - type: web
+    name: machine-monitoring-platform
+    runtime: python
+    region: ohio
+    plan: 0.5c-512mb
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir webapp app:app
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: monnit-machine-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: monnit-machine-queue
+          property: connectionString
+      - key: LOCAL_TIMEZONE
+        value: America/Indiana/Indianapolis
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: PORTAL_USERNAME
+        sync: false
+      - key: PORTAL_PASSWORD
+        sync: false
+      - key: ERP_API_KEY
+        sync: false
+
+  - type: worker
+    name: machine-state-worker
+    runtime: python
+    region: ohio
+    plan: 0.5c-512mb
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker/worker.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: monnit-machine-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: monnit-machine-queue
+          property: connectionString
+      - key: LOCAL_TIMEZONE
+        value: America/Indiana/Indianapolis
+
+  - type: cron
+    name: machine-daily-archive
+    runtime: python
+    region: ohio
+    plan: 0.5c-512mb
+    schedule: "15 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python cron/archive_daily.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: monnit-machine-db
+          property: connectionString
+      - key: LOCAL_TIMEZONE
+        value: America/Indiana/Indianapolis
+      - key: RAW_SENSOR_RETENTION_DAYS
+        value: "90"
+      - key: HISTORY_RETENTION_DAYS
+        value: "1825"
+
+databases:
+  - name: monnit-machine-db
+    region: ohio
+    plan: 0.5c-1g
+    databaseName: monnit_machine
+    user: monnit_app
+    diskSizeGB: 50
+    storageAutoscalingEnabled: true
+    connectionPool: pgbouncer
+    ipAllowList: []
